@@ -1,0 +1,124 @@
+version: "3"
+
+services:
+  goapp:
+    build:
+      context: ./go
+    platform: linux/amd64
+    volumes:
+      - ./go:/app
+    ports:
+      - 8080:8080
+    depends_on:
+      - mysql-wallet
+ 
+  mysql-wallet:
+    image: mysql:5.7
+    platform: linux/amd64
+    container_name: mysql-wallet
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: wallet
+      MYSQL_PASSWORD: root
+    ports:
+      - 3306:3306
+    volumes:
+      #- .docker/mysql-wallet:/var/lib/mysql
+      - ./db/init.wallet.sql:/docker-entrypoint-initdb.d/init.wallet.sql
+
+  zookeeper:
+    image: "confluentinc/cp-zookeeper:6.1.0"
+    container_name: zookeeper
+    ports:
+      - 2181:2181
+    environment:
+      TZ: Sao_Paulo/Brazil
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: "confluentinc/cp-enterprise-kafka:6.1.0"
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      # Exposes 9092 for external connections to the broker
+      # Use kafka:29092 for connections internal on the docker network
+      # See https://rmoff.net/2018/08/02/kafka-listeners-explained/ for details
+      - "9092:9092"
+    environment:
+      TZ: Sao_Paulo/Brazil
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
+      CONFLUENT_METRICS_ENABLE: "false"
+      KAFKA_CREATE_TOPICS: "balances:1:1,transactions:1:1"
+
+  control-center:
+    image: confluentinc/cp-enterprise-control-center:7.3.0
+    hostname: control-center
+    container_name: control-center
+    depends_on:
+      - kafka
+    ports:
+      - "9021:9021"
+    environment:
+      CONTROL_CENTER_BOOTSTRAP_SERVERS: "kafka:29092"
+      CONTROL_CENTER_REPLICATION_FACTOR: 1
+      CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
+      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
+      CONFLUENT_METRICS_TOPIC_REPLICATION: 1
+      PORT: 9021
+
+  mysql-balance:
+    image: mysql:5.7
+    platform: linux/amd64
+    container_name: mysql-balance
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: balance
+      MYSQL_PASSWORD: root
+    ports:
+      - 3307:3306
+    volumes:
+      #- .docker/mysql-balance:/var/lib/mysql
+      - ./db/init.balance.sql:/docker-entrypoint-initdb.d/init.balance.sql
+    #networks: 
+     # - node-network
+
+
+  javaapp:
+    container_name: javaapp
+    depends_on:
+      - mysql-balance
+    build: 
+      context: kafka
+    restart: on-failure
+    #env_file: ./.env
+    ports:
+      - 3003:16001
+    environment:
+      # note the change in the following line
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-balance:3306/balance
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_KAFKA_BOOTSTRAP-SERVERS: kafka:29092
+      SPRING_KAFKA_CONSUMER_GROUP-ID: wallet
+
+    volumes:
+      - .m2:/root/.m2
+    stdin_open: true
+    tty: true
+
+#networks: 
+ # node-network:
+ #   driver: bridge  

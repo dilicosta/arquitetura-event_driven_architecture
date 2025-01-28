@@ -1,0 +1,10 @@
+
+GET http://localhost:3003/balances HTTP/1.1
+
+### abaixo apos rodar a chamada do transactions do wallet
+
+GET http://localhost:3003/balances/87495b95-1c7f-4038-ae55-ab36ed6a9411 HTTP/1.1
+
+###
+
+GET http://localhost:3003/balances/9e3c6bb1-bf75-11e9-9ea7-2a2ae2dbcce4 HTTP/1.1
