@@ -1,4 +1,4 @@
-package com.consumer.kafka.infraestructure;
+package com.consumer.kafka.servico;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;

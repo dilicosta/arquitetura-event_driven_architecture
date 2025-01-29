@@ -1,4 +1,4 @@
-package com.consumer.kafka.infraestructure;
+package com.consumer.kafka.dao;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -9,6 +9,5 @@ import java.util.Optional;
 
 @Repository
 public interface BalanceRepository extends JpaRepository<Balance, Long> {
-    // Nenhuma implementação adicional é necessária, pois JpaRepository já fornece métodos CRUD padrão
     Optional<Balance> findByAccountId(String clientId);
 }
